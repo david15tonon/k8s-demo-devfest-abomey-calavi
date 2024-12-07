@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: high-cpu-utilization-demo
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: cpu-simulation-app
+  template:
+    metadata:
+      labels:
+        app: cpu-simulation-app
+    spec:
+      containers:
+        - name: cpu-utilization-container
+          image: ubuntu
+          command:
+            [
+              "/bin/sh",
+              "-c",
+              "apt-get update && apt-get install -y stress-ng && while true; do stress-ng --cpu 1; done",
+            ]
+          resources:
+            limits:
+              cpu: "0.05"
+            requests:
+              cpu: "0.05"
+---
+apiVersion: "autoscaling.k8s.io/v1"
+kind: VerticalPodAutoscaler
+metadata:
+  name: stress-vpa
+spec:
+  targetRef:
+    apiVersion: "apps/v1"
+    kind: Deployment
+    name: high-cpu-utilization-demo
+  updatePolicy:
+    updateMode: Auto
+  resourcePolicy:
+    containerPolicies:
+      - containerName: "cpu-utilization-container"
+        minAllowed:
+          cpu: 100m
+          memory: 50Mi
+        maxAllowed:
+          cpu: 200m
+          memory: 500Mi
+        controlledResources: ["cpu", "memory"]
